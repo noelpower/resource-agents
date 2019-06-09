@@ -532,6 +532,35 @@ append_ctdb_sysconfig() {
 	[ -n "$2" ] && echo "$1=$2" >> "$CTDB_SYSCONFIG"
 }
 
+generate_ctdb_config() {
+
+	ocf_version_cmp "$vers" "4.9.0"
+	if [ "$?" -eq "0" ]; then
+		# do nothing for 4.9 and greater
+		return
+	fi
+
+CTDB_CONFIG="$OCF_RESKEY_ctdb_config_dir/ctdb.conf"
+
+cat >$CTDB_CONFIG <<EOF
+
+[logging]
+EOF
+	log_option="file:$OCF_RESKEY_ctdb_logfile"
+	if [ "$OCF_RESKEY_ctdb_logfile" = "syslog" ]; then
+		log_option="=syslog"
+	fi
+
+cat >>$CTDB_CONFIG <<EOF
+	log_option=$log_option
+	log level = "$OCF_RESKEY_ctdb_debuglevel"
+[cluster]
+	recovery lock = CTDB_RECOVERY_LOCK="$OCF_RESKEY_ctdb_recovery_lock"
+[database]
+	persistent database directory = "$OCF_RESKEY_ctdb_dbdir/persistent"
+EOF
+}
+
 # Generate a new, minimal CTDB config file that's just enough
 # to get CTDB running as configured by the RA parameters.
 generate_ctdb_sysconfig() {
@@ -573,37 +602,8 @@ EOF
 		return
 	fi
 
-	# 4.9+ moves all ctdbd binary parameters to sysconfig
-
-	cat >>$CTDB_SYSCONFIG <<EOF
-CTDB_RECOVERY_LOCK="$OCF_RESKEY_ctdb_recovery_lock"
-CTDB_NODES="$OCF_RESKEY_ctdb_config_dir/nodes"
-CTDB_SOCKET="$OCF_RESKEY_ctdb_socket"
-CTDB_DBDIR="$OCF_RESKEY_ctdb_dbdir"
-CTDB_DBDIR_PERSISTENT="$OCF_RESKEY_ctdb_dbdir/persistent"
-CTDB_EVENT_SCRIPT_DIR="$OCF_RESKEY_ctdb_config_dir/events.d"
-CTDB_NOTIFY_SCRIPT="$OCF_RESKEY_ctdb_config_dir/notify.sh"
-CTDB_TRANSPORT="tcp"
-CTDB_DEBUGLEVEL="$OCF_RESKEY_ctdb_debuglevel"
-EOF
-
-	if [ -f "${OCF_RESKEY_ctdb_config_dir}/public_addresses" ] then
-		cat >>$CTDB_SYSCONFIG <<EOF
-CTDB_PUBLIC_ADDRESSES="${OCF_RESKEY_ctdb_config_dir}/public_addresses"
-EOF
-	fi
-	if ocf_is_true $OCF_RESKEY_ctdb_start_as_disabled; then
-		cat >>$CTDB_SYSCONFIG <<EOF
-CTDB_START_AS_DISABLED="yes"
-EOF
-	fi
-	log_option="file:$OCF_RESKEY_ctdb_logfile"
-	if [ "$OCF_RESKEY_ctdb_logfile" = "syslog" ]; then
-		log_option="=syslog"
-	fi
-	cat >>$CTDB_SYSCONFIG <<EOF
-CTDB_LOGGING=$log_option
-EOF
+	# 4.9+ moves all ctdbd binary parameters to ctdb.conf
+	generate_ctdb_config
 }
 
 
