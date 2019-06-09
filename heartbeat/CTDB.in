@@ -703,8 +703,8 @@ ctdb_start() {
 	fi
 
 	# Start her up
-	"$OCF_RESKEY_ctdbd_binary" \
-		"$ctdbd_params"
+	$($OCF_RESKEY_ctdbd_binary $ctdbd_params)
+
 	if [ $? -ne 0 ]; then
 		# cleanup smb.conf
 		cleanup_smb_conf
