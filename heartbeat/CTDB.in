@@ -782,7 +782,7 @@ ctdb_stop() {
 		[ $count -gt 10 ] && {
 			ocf_log info "killing ctdbd "
 			pkill -9 -f "$OCF_RESKEY_ctdbd_binary"
-			pkill -9 -f "${OCF_RESKEY_ctdb_config_dir}/events.d/"
+			pkill -9 -f "${OCF_RESKEY_ctdb_config_dir}/events"
 		}
 	done
 
