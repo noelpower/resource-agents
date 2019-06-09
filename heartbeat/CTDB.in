@@ -426,26 +426,29 @@ invoke_ctdb() {
 # with CTDB, but will generally have no effect, beacuase the relevant
 # CTDB_MANAGES_* options won't be set in /etc/sysconfig/ctdb.
 enable_event_scripts() {
-	local event_dir
-	event_dir=$OCF_RESKEY_ctdb_config_dir/events.d
 
-	chmod u+x "$event_dir/00.ctdb"	# core database health check
+	invoke_ctdb event script enable legacy 00.ctdb
 
 	if [ -f "${OCF_RESKEY_ctdb_config_dir}/public_addresses" ]; then
-		chmod u+x "$event_dir/10.interface"
+		invoke_ctdb event script enable legacy 10.interface
 	else
-		chmod a-x "$event_dir/10.interface"
+		invoke_ctdb event script disable legacy 10.interface
 	fi
 	if [ -f "${OCF_RESKEY_ctdb_config_dir}/static-routes" ]; then
-		chmod u+x "$event_dir/11.routing"
+		invoke_ctdb event script enable legacy 11.routing
 	else
-		chmod a-x "$event_dir/11.routing"
+		invoke_ctdb event script disable legacy 11.routing
 	fi
-	if ocf_is_true "$OCF_RESKEY_ctdb_manages_samba" || \
-	   ocf_is_true "$OCF_RESKEY_ctdb_manages_winbind"; then
-		chmod u+x "$event_dir/50.samba"
+
+	if ocf_is_true "$OCF_RESKEY_ctdb_manages_winbind"; then
+		invoke_ctdb event script enable legacy 49.winbind
 	else
-		chmod a-x "$event_dir/50.samba"
+		invoke_ctdb event script disable legacy 49.winbind
+
+	if ocf_is_true "$OCF_RESKEY_ctdb_manages_samba"; then
+		invoke_ctdb event script enable legacy 50.samba
+	else
+		invoke_ctdb event script disable legacy 50.samba
 	fi
 }
 
