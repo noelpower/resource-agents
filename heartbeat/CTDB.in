@@ -723,7 +723,7 @@ ctdb_start() {
 			if [ $? -ne 0 ]; then
 				# CTDB will be running, kill it before returning
 				ctdb_stop
-				ocf_exit_reason "Can't invoke $OCF_RESKEY_ctdb_binary --socket=$OCF_RESKEY_ctdb_socket status"
+				ocf_exit_reason "Can't invoke $OCF_RESKEY_ctdb_binary status"
 				return $OCF_ERR_GENERIC
 			fi
 			if ! echo "$status" | grep -qs 'UNHEALTHY (THIS'; then
