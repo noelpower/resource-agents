@@ -387,9 +387,19 @@ invoke_ctdb() {
 		timeout=$((OCF_RESKEY_CRM_meta_timeout/1000))
 		timelimit=$((OCF_RESKEY_CRM_meta_timeout/1000))
 	fi
-	$OCF_RESKEY_ctdb_binary --socket="$OCF_RESKEY_ctdb_socket" \
-		-t $timeout -T $timelimit \
-		"$@"
+	ocf_version_cmp "$version" "4.9.0"
+
+	# if version < 4.9.0 specify '--socket' otherwise it's
+	# a compiled option
+	if [ "$?" -eq "0" ]; then
+		$OCF_RESKEY_ctdb_binary --socket="$OCF_RESKEY_ctdb_socket" \
+			-t $timeout -T $timelimit \
+			"$@"
+	else
+		$OCF_RESKEY_ctdb_binary \
+			-t $timeout -T $timelimit \
+			"$@"
+	fi
 }
 
 # Enable any event scripts that are explicitly required.
