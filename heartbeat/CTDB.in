@@ -110,6 +110,12 @@ fi
 #######################################################################
 
 meta_data() {
+	fourdotnine=""
+	version=$(ctdb version | awk '{print $NF}' | sed "s/[-\.]\?[[:alpha:]].*//")
+	ocf_version_cmp "$version" "4.9.0"
+	if [ "$?" -ne "0" ]; then
+		fourdotnine="true"
+	fi
 	cat <<END
 <?xml version="1.0"?>
 <!DOCTYPE resource-agent SYSTEM "ra-api-1.dtd">
@@ -221,8 +227,14 @@ host any public ip addresses.
 <parameter name="ctdb_config_dir" unique="0" required="0">
 <longdesc lang="en">
 The directory containing various CTDB configuration files.
+END
+	if [ -z "$fourdotnine" ]; then
+		cat <<END
 The "nodes" and "notify.sh" scripts are expected to be
 in this directory, as is the "events.d" subdirectory.
+END
+	fi
+	cat <<END
 </longdesc>
 <shortdesc lang="en">CTDB config file directory</shortdesc>
 <content type="string" default="/etc/ctdb" />
@@ -243,7 +255,10 @@ Full path to the CTDB cluster daemon binary.
 <shortdesc lang="en">CTDB Daemon binary path</shortdesc>
 <content type="string" default="/usr/sbin/ctdbd" />
 </parameter>
+END
 
+	if [ -z "$fourdotnine" ]; then
+		cat <<END
 <parameter name="ctdb_socket" unique="1" required="0">
 <longdesc lang="en">
 Full path to the domain socket that ctdbd will create, used for
@@ -253,6 +268,10 @@ local clients to attach and communicate with the ctdb daemon.
 <content type="string" default="${OCF_RESKEY_ctdb_socket}" />
 </parameter>
 
+END
+	fi
+
+	cat <<END
 <parameter name="ctdb_dbdir" unique="1" required="0">
 <longdesc lang="en">
 The directory to put the local CTDB database files in.
