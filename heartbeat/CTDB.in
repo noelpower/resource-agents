@@ -425,14 +425,35 @@ invoke_ctdb() {
 # Any others will ultimately be invoked or not based on how they ship
 # with CTDB, but will generally have no effect, beacuase the relevant
 # CTDB_MANAGES_* options won't be set in /etc/sysconfig/ctdb.
-enable_event_scripts() {
+enable_event_scripts_chmod() {
+	local event_dir
+	event_dir=$OCF_RESKEY_ctdb_config_dir/events.d
+
+	chmod u+x "$event_dir/00.ctdb"  # core database health check
+
+	if [ -f "${OCF_RESKEY_ctdb_config_dir}/public_addresses" ]; then
+		chmod u+x "$event_dir/10.interface"
+	else
+		chmod a-x "$event_dir/10.interface"
+	fi
+	if [ -f "${OCF_RESKEY_ctdb_config_dir}/static-routes" ]; then
+		chmod u+x "$event_dir/11.routing"
+	else
+		chmod a-x "$event_dir/11.routing"
+	fi
+	if ocf_is_true "$OCF_RESKEY_ctdb_manages_samba" || \
+	   ocf_is_true "$OCF_RESKEY_ctdb_manages_winbind"; then
+		chmod u+x "$event_dir/50.samba"
+	else
+		chmod a-x "$event_dir/50.samba"
+	fi
+}
+
+enable_event_scripts_symlink() {
 	local vers="$1"
 
-	ocf_version_cmp "$vers" "4.9.0"
-	if [ "$?" -ne "0" ]; then
-		# event scripts are symlinked when enabled with the source in...
-		mkdir -p "$OCF_RESKEY_ctdb_config_dir/events/legacy" 2>/dev/null
-	fi
+	# event scripts are symlinked once enabled, with the link source in...
+	mkdir -p "$OCF_RESKEY_ctdb_config_dir/events/legacy" 2>/dev/null
 
 	invoke_ctdb event script enable legacy 00.ctdb
 
@@ -726,7 +747,16 @@ ctdb_start() {
 	generate_ctdb_sysconfig "$version"
 	# 4.9+ moves all ctdbd binary parameters to ctdb.conf
 	generate_ctdb_config "$version"
-	enable_event_scripts "$version"
+	ocf_version_cmp "$version" "4.9.0"
+	if [ "$?" -eq "0" ]; then
+		# prior to 4.9.0, event script enablement without a running
+		# ctdbd is done by chmoding the scripts directly
+		enable_event_scripts_chmod
+	else
+		# 4.9.0+ event scripts can be enabled with ctdb directly, which
+		# performs a symlink
+		enable_event_scripts_symlink
+	fi
 	local ctdbd_params="$(generate_ctdbd_params $version)"
 
 	if [ ! -d "$(dirname $OCF_RESKEY_ctdb_logfile)" ]; then
