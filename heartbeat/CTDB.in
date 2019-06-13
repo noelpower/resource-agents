@@ -110,9 +110,9 @@ fi
 #######################################################################
 
 meta_data() {
-	fourdotnine=""
-	version=$(ctdb version | awk '{print $NF}' | sed "s/[-\.]\?[[:alpha:]].*//")
-	ocf_version_cmp "$version" "4.9.0"
+	local fourdotnine=""
+	local vers=$($OCF_RESKEY_ctdb_binary version | awk '{print $NF}' | sed "s/[-\.]\?[[:alpha:]].*//")
+	ocf_version_cmp "$vers" "4.9.0"
 	if [ "$?" -ne "0" ]; then
 		fourdotnine="true"
 	fi
@@ -269,6 +269,19 @@ local clients to attach and communicate with the ctdb daemon.
 </parameter>
 
 END
+	else
+		cat <<END
+<parameter name="ctdb_socket" unique="1" required="0">
+<longdesc lang="en">
+This parameter used to allow for configuration of the ctdbd
+socket path. With ctdb 4.9.0+ this path is hardcoded at build
+time, so this parameter has no effect.
+</longdesc>
+<shortdesc lang="en">Obsolete CTDB socket location</shortdesc>
+<content type="string" default="${OCF_RESKEY_ctdb_socket}" />
+</parameter>
+
+END
 	fi
 
 	cat <<END
@@ -406,7 +419,9 @@ invoke_ctdb() {
 		timeout=$((OCF_RESKEY_CRM_meta_timeout/1000))
 		timelimit=$((OCF_RESKEY_CRM_meta_timeout/1000))
 	fi
-	ocf_version_cmp "$version" "4.9.0"
+
+	local vers=$($OCF_RESKEY_ctdb_binary version | awk '{print $NF}' | sed "s/[-\.]\?[[:alpha:]].*//")
+	ocf_version_cmp "$vers" "4.9.0"
 
 	# if version < 4.9.0 specify '--socket' otherwise it's
 	# a compiled option
@@ -666,14 +681,14 @@ EOF
 }
 
 
-# Generate a list of parameters for the ctdbd binary
-generate_ctdbd_params() {
+invoke_ctdbd() {
 	local vers="$1"
 
 	ocf_version_cmp "$vers" "4.9.0"
 	if [ "$?" -ne "0" ]; then
 		# With 4.9+, all ctdbd binary parameters are provided as
 		# config settings
+		$OCF_RESKEY_ctdbd_binary
 		return
 	fi
 
@@ -681,7 +696,7 @@ generate_ctdbd_params() {
 	local log_option
 	# --logging supported from v4.3.0 and --logfile / --syslog support
 	# has been removed from newer versions
-	ocf_version_cmp "$version" "4.2.14"
+	ocf_version_cmp "$vers" "4.2.14"
 	if [ "$?" -eq "2" ]; then
 		log_option="--logging=file:$OCF_RESKEY_ctdb_logfile"
 		if [ "$OCF_RESKEY_ctdb_logfile" = "syslog" ]; then
@@ -704,16 +719,17 @@ generate_ctdbd_params() {
 	start_as_disabled="--start-as-disabled"
 	ocf_is_true "$OCF_RESKEY_ctdb_start_as_disabled" || start_as_disabled=""
 
-	echo   "--reclock=\"$OCF_RESKEY_ctdb_recovery_lock\" \
-		--nlist=\"$OCF_RESKEY_ctdb_config_dir/nodes\" \
-		--socket=\"$OCF_RESKEY_ctdb_socket\" \
-		--dbdir=\"$OCF_RESKEY_ctdb_dbdir\" \
-		--dbdir-persistent=\"$OCF_RESKEY_ctdb_dbdir/persistent\" \
-		--event-script-dir=\"$OCF_RESKEY_ctdb_config_dir/events.d\" \
-		--notification-script=\"$OCF_RESKEY_ctdb_config_dir/notify.sh\" \
+	$OCF_RESKEY_ctdbd_binary \
+		--reclock="$OCF_RESKEY_ctdb_recovery_lock" \
+		--nlist="$OCF_RESKEY_ctdb_config_dir/nodes" \
+		--socket="$OCF_RESKEY_ctdb_socket" \
+		--dbdir="$OCF_RESKEY_ctdb_dbdir" \
+		--dbdir-persistent="$OCF_RESKEY_ctdb_dbdir/persistent" \
+		--event-script-dir="$OCF_RESKEY_ctdb_config_dir/events.d" \
+		--notification-script="$OCF_RESKEY_ctdb_config_dir/notify.sh" \
 		--transport=tcp \
 		$start_as_disabled $log_option $pub_addr_option \
-		-d \"$OCF_RESKEY_ctdb_debuglevel\""
+		-d "$OCF_RESKEY_ctdb_debuglevel"
 }
 
 
@@ -742,7 +758,7 @@ ctdb_start() {
 		return $OCF_ERR_GENERIC
 	fi
 
-	version=$(ctdb version | awk '{print $NF}' | sed "s/[-\.]\?[[:alpha:]].*//")
+	local version=$($OCF_RESKEY_ctdb_binary version | awk '{print $NF}' | sed "s/[-\.]\?[[:alpha:]].*//")
 	# Generate new CTDB sysconfig
 	generate_ctdb_sysconfig "$version"
 	# 4.9+ moves all ctdbd binary parameters to ctdb.conf
@@ -757,7 +773,6 @@ ctdb_start() {
 		# performs a symlink
 		enable_event_scripts_symlink
 	fi
-	local ctdbd_params="$(generate_ctdbd_params $version)"
 
 	if [ ! -d "$(dirname $OCF_RESKEY_ctdb_logfile)" ]; then
 		# ensure the logfile's directory exists, otherwise ctdb will fail to start
@@ -773,7 +788,7 @@ ctdb_start() {
 	fi
 
 	# Start her up
-	$($OCF_RESKEY_ctdbd_binary $ctdbd_params)
+	invoke_ctdbd "$version"
 
 	if [ $? -ne 0 ]; then
 		# cleanup smb.conf
