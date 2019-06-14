@@ -108,10 +108,15 @@ fi
 : ${OCF_RESKEY_smb_idmap_backend:=tdb2}
 
 #######################################################################
+ctdb_version() {
+	local vers=$($OCF_RESKEY_ctdb_binary version | awk '{print $NF}' | sed "s/[-\.]\?[[:alpha:]].*//")
+	echo $vers
+}
 
 meta_data() {
 	local fourdotnine=""
-	local vers=$($OCF_RESKEY_ctdb_binary version | awk '{print $NF}' | sed "s/[-\.]\?[[:alpha:]].*//")
+	local vers=$(ctdb_version)
+
 	ocf_version_cmp "$vers" "4.9.0"
 	if [ "$?" -ne "0" ]; then
 		fourdotnine="true"
@@ -420,7 +425,7 @@ invoke_ctdb() {
 		timelimit=$((OCF_RESKEY_CRM_meta_timeout/1000))
 	fi
 
-	local vers=$($OCF_RESKEY_ctdb_binary version | awk '{print $NF}' | sed "s/[-\.]\?[[:alpha:]].*//")
+	local vers=$(ctdb_version)
 	ocf_version_cmp "$vers" "4.9.0"
 
 	# if version < 4.9.0 specify '--socket' otherwise it's
@@ -758,7 +763,7 @@ ctdb_start() {
 		return $OCF_ERR_GENERIC
 	fi
 
-	local version=$($OCF_RESKEY_ctdb_binary version | awk '{print $NF}' | sed "s/[-\.]\?[[:alpha:]].*//")
+	local version=$(ctdb_version)
 	# Generate new CTDB sysconfig
 	generate_ctdb_sysconfig "$version"
 	# 4.9+ moves all ctdbd binary parameters to ctdb.conf
